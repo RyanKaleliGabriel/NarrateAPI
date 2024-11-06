@@ -1,0 +1,37 @@
+{
+  "name": "chattr",
+  "version": "1.0.0",
+  "description": "social media backend with GraphQL",
+  "main": "n",
+  "scripts": {
+    "start": "node dist/app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyanKaleliGabriel/Chattr.git"
+  },
+  "author": "Ryan Kaleli Gabriel",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RyanKaleliGabriel/Chattr/issues"
+  },
+  "homepage": "https://github.com/RyanKaleliGabriel/Chattr#readme",
+  "dependencies": {
+    "@apollo/server": "^4.11.2",
+    "@apollo/subgraph": "^2.9.3",
+    "@types/graphql": "^14.5.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/pg": "^8.11.10"
+  }
+}
