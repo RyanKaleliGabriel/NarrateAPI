@@ -1,16 +1,16 @@
-import pool from "../config/db";
 import bcrypt from "bcrypt";
-import { MyContext } from "../models/db";
-import { GraphQLFieldResolver } from 'graphql';
+import { User } from "../models/User";
 
 const resolvers = {
   Query: {
-    getUser: async (_: any, { id }: { id: string }, { pool }: MyContext) => {
-      const result = await pool.query(
-        "SELECT id, username FROM users WHERE  id = $1",
-        [id]
-      );
-      return result.rows[0];
+    getUser: async (_: any, { id }: { id: string }) => {
+      const user = await User.findByPk(id, {
+        attributes: ["id", "username", "email"],
+      });
+      if (!user) {
+        throw new Error("User not found");
+      }
+      return user;
     },
   },
 
@@ -21,47 +21,38 @@ const resolvers = {
         username,
         email,
         password,
-      }: { username: string; email: string; password: string },
-      { pool }: MyContext
+      }: { username: string; email: string; password: string }
     ) => {
       const hashedPassword = await bcrypt.hash(password, 12);
-
-      const result = await pool.query(
-        "INSERT INTO users (username, email, password VALUES ($1, $2, $3) RETURNING id, username",
-        [username, email, hashedPassword]
-      );
-
-      return result.rows[0];
+      const user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+      });
+      return user;
     },
 
     updateUser: async (
       _: any,
-      { id, username, email }: { id: string; username: string; email: string },
-      { pool }: MyContext
+      { id, username, email }: { id: string; username: string; email: string }
     ) => {
-      const result = await pool.query(
-        "UPDATE users SET usernam=$1, email= $2 WHERE id = $3 RETURNING id, username, email",
-        [username, email, id]
-      );
-
-      if (result.rowCount === 0) {
+      const user = await User.findByPk(id);
+      if (!user) {
         throw new Error("User not found");
       }
-
-      return result.rows[0];
+      (user.username = username), (user.email = email);
+      await user.save();
+      return user;
     },
 
-    deleteUser: async (_: any, { id }: { id: string }, { pool }: MyContext) => {
-      const result = await pool.query(
-        "DELETE FROM users WHERE id=$1 RETURNING id, username",
-        [id]
-      );
-
-      if (result.rowCount === 0) {
-        throw new Error("User not found");
+    deleteUser: async (_: any, { id }: { id: string }) => {
+      const user = await User.findByPk(id)
+      if(!user){
+        throw new Error('User not found')
       }
 
-      return result.rows[0];
+      await user.destroy()
+      return {id: user.id, message: 'User successfully deleted'}
     },
   },
 };

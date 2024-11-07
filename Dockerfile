@@ -5,13 +5,14 @@ WORKDIR /
 
 # Install dependencies
 COPY package*.json ./
-RUN npm Install
+RUN npm install
 
 # Copy Source code
+
 COPY . .
 
 # Build the application
-RUN npm run builder
+RUN npm run build
 
 #Stage 2: Development
 FROM node:18-alpine
@@ -23,9 +24,11 @@ EXPOSE 3000
 
 #copy built files from builder
 COPY --from=builder /dist ./dist
+COPY --from=builder /schema.graphql dist/schema.graphql
+
 
 COPY package*.json ./
-RUN npm Install
+RUN npm install
 
 
 #Start the application
