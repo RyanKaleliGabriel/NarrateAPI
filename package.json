@@ -4,8 +4,10 @@
   "description": "social media backend with GraphQL",
   "main": "n",
   "scripts": {
-    "start": "node dist/app.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npx tsc",
+    "start": "node dist/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:migrate": "sequelize-cli db:migrate --config config/config.js"
   },
   "repository": {
     "type": "git",
@@ -20,6 +22,7 @@
   "dependencies": {
     "@apollo/server": "^4.11.2",
     "@apollo/subgraph": "^2.9.3",
+    "@types/dotenv": "^8.2.3",
     "@types/graphql": "^14.5.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -28,10 +31,14 @@
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "sequelize": "^6.37.5",
+    "typescript": "^5.6.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
-    "@types/pg": "^8.11.10"
+    "@types/pg": "^8.11.10",
+    "sequelize-cli": "^6.6.2"
   }
 }
