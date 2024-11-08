@@ -1,17 +1,28 @@
 type Query {
-  getUser(id: ID!): User
-  users: [User]
+  getPost(id: ID!): Blog
+  getPosts: [Blog]
 }
 
 type Mutation {
-  createUser(username: String!, password: String, email: String): User
-  deleteUser(id: ID!): Boolean
-  updateUser(id: ID!, username: String!, password: String, email: String): User
+  createPost(
+    title: String!
+    content: String!
+    category: String!
+    tags: [ID!]
+  ): Blog
+  updatePost(id: ID!, title: String!, category: String!, tags: [ID!]): Blog
+  deletePost(id: ID!): Boolean
 }
 
-type User {
+type Blog {
   id: ID
-  username: String
-  password: String
-  email: String
+  title: String
+  content: String
+  category: String
+  tags: [Tag]
+}
+
+type Tag {
+  id: ID
+  name: String
 }

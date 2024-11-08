@@ -1,5 +1,5 @@
-import { Sequelize } from "sequelize";
+import { Pool } from "pg";
 
 export interface MyContext {
-  sequelize: Sequelize;
+  pool:Pool;
 }

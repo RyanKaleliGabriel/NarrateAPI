@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql  # Mount init.sql file here
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
@@ -26,8 +27,6 @@ services:
        DB_HOST: db
        DB_PORT: 5432
        DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
-
-
     ports:
       - "3000:3000"
     depends_on:

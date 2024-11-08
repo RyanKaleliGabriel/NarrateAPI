@@ -25,7 +25,7 @@ EXPOSE 3000
 #copy built files from builder
 COPY --from=builder /dist ./dist
 COPY --from=builder /schema.graphql dist/schema.graphql
-
+COPY --from=builder /db dist/db 
 
 COPY package*.json ./
 RUN npm install

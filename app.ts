@@ -5,14 +5,12 @@ import dotenv from "dotenv";
 import express from "express";
 import gql from "graphql-tag";
 import path from "path";
-
+import { Pool } from "pg"; // Import pg
 import { readFileSync } from "fs";
-import sequelize from "./config/sequelize";
-import resolvers from "./resolvers/user";
+import resolvers from "./resolvers/post";
 import { MyContext } from "./types/db";
 
 dotenv.config();
-
 
 
 // Read Schema from file ensure the path is correct
@@ -21,6 +19,10 @@ const typeDefs = gql(
     encoding: "utf-8",
   })
 );
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // Create Apollo server
 const server = new ApolloServer({
@@ -36,8 +38,6 @@ app.use(cors());
 app.use(express.json());
 
 const startServer = async () => {
-  await sequelize.authenticate(); //Check database connection
-  console.log("Database connected");
 
   await server.start(); // Start the apollo server
   // MIddleware for apollo server graphql endpoint
@@ -48,7 +48,7 @@ const startServer = async () => {
     cors(),
     express.json(),
     expressMiddleware(server, {
-      context: async (): Promise<MyContext> => ({ sequelize }), // Set context here
+      context: async (): Promise<MyContext> => ({ pool }), // Set context here
     })
   );
 

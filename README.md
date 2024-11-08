@@ -1,6 +1,6 @@
-# Chatrr - A playful twist on "chat" that suggests interaction.
+# NarrateApi
 
-> This is a social media backend with GraphQL, includiong basic CRUD operations and interactions.
+> This is a  GraphQL API for a personal blogging platform
 
 ## Table of Contents
 
@@ -19,26 +19,16 @@
 
 ## Take Aways
 
- - Nested queries (e.g., retrieving posts with comments and likes).
+ - Understand what the GraphQL APIs are including best practices and conventions
 
  - Querying and updating related data in a single request.
 
- - Understanding GraphQL security practices (auth checks in resolvers).
+ - Understanding GraphQL security practices.
  
- - User Management: Sign-up, sign-in, and profile updates.
-
- - Post Creation and Retrieval: Users can create posts, view their own and others' posts.
-
- - Likes and Comments: Add functionality for users to like posts and comment on them.
-
- - Friend Requests: Implement queries and mutations for sending, accepting, and removing friend requests.
-
- - Pagination and Filtering: Implement cursor-based pagination to fetch posts, likes, and comments.
-
-
 
  ## Stack
 
  - NodeJs
- - Postgres
+ - Express
+ - PostgreSQL
  - Docker
