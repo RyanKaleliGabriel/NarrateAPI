@@ -1,5 +1,4 @@
 import bcrypt from "bcrypt";
-import { Pool } from "pg";
 import { MyContext } from "../types/db";
 
 // Assuming db is the PostgreSQL connection pool
@@ -28,40 +27,40 @@ const resolvers = {
       );
 
       post.tags = tagResult.rows;
-
       return post;
     },
 
-    getPosts: async (_: any, { pool }: MyContext) => {
-      // The LEFT JOIN allows fetching all posts, even those without tags,
-      // by joining posts, post_tags, and tags. If a post has no tags,
-      // the tag_id and tag_name will be NULL.
+    getPosts: async (_: any, __: any, { pool }: MyContext) => {
+      // Modified query to include created_at and updated_at fields
       const result = await pool.query(
-        " SELECT p.id AS post_id, p.title, p.content, p.category, p.created_at, p.updated_at, t.id as tag_id, t.name as tag_name FROM posts p LEFT JOIN post_tags pt ON p.id = pt.post_id LEFT JOIN tags t ON pt.tag_id = t.id "
+        `SELECT p.id AS post_id, p.title, p.content, p.category, 
+                p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name 
+         FROM posts p 
+         LEFT JOIN post_tags pt ON p.id = pt.post_id 
+         LEFT JOIN tags t ON pt.tag_id = t.id;`
       );
 
-      //Process the rsult to group tags by post
-      // A Map is used here to ensure each post is processed uniquely and efficiently.
-      // It allows for easy grouping of tags by post_id without duplicating posts in the result.
+      // Using a Map to store posts by post_id for unique entries
       const postsMap = new Map();
-      //  Using a Map, this code groups tags by their corresponding post.
-      // It checks if each post_id already exists in the map; if not, it
-      // initializes the post with an empty tags array.
-      // Then, if there is a tag_id, it adds that tag to the post’s tags array.
 
+      // Process each row to group tags by post
       result.rows.forEach((row) => {
         const postId = row.post_id;
+
+        // Check if the post already exists in the Map
         if (!postsMap.has(postId)) {
           postsMap.set(postId, {
-            id: row.post_id,
+            id: postId,
             title: row.title,
             content: row.content,
             category: row.category,
             created_at: row.created_at,
-            updated_at: row.created_at,
-            tags: [],
+            updated_at: row.updated_at,
+            tags: [], // Initialize an empty array for tags
           });
         }
+
+        // If a tag exists, add it to the tags array of the post
         if (row.tag_id) {
           postsMap
             .get(postId)
@@ -69,6 +68,7 @@ const resolvers = {
         }
       });
 
+      // Convert the Map values to an array for the final output
       return Array.from(postsMap.values());
     },
   },
@@ -107,8 +107,8 @@ const resolvers = {
               "INSERT INTO tags (name) VALUES ($1) RETURNING id",
               [tag]
             );
+            console.log(tagResult);
           }
-
           tagId = tagResult.rows[0].id;
 
           //INSERT into post_tags to link post and tag
@@ -120,17 +120,17 @@ const resolvers = {
             "INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             [post.id, tagId]
           );
-
-          await pool.query("COMMIT");
-
-          //Fetch associated tags to return with the post
-          const tags = await pool.query(
-            "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
-            [post.id]
-          );
-          post.tags = tags.rows;
-          return post;
         }
+
+        await pool.query("COMMIT");
+
+        //Fetch associated tags to return with the post
+        const tagResult = await pool.query(
+          "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
+          [post.id]
+        );
+        post.tags = tagResult.rows;
+        return post;
       } catch (error) {
         await pool.query("ROLLBACK");
         throw error;
@@ -156,7 +156,6 @@ const resolvers = {
     ) => {
       try {
         await pool.query("BEGIN");
-
         const result = await pool.query("SELECT * FROM posts WHERE id = $1", [
           id,
         ]);
@@ -164,27 +163,62 @@ const resolvers = {
         if (!post) {
           throw new Error("Post not found");
         }
-        await pool.query(
+
+        const updatedPost = await pool.query(
           // COALESCE($1, title): If $1 (the title parameter) is NULL, it will keep the current value of title in the posts table.
           "UPDATE posts SET title = COALESCE($1, title), content = COALESCE($2, content), category = COALESCE($3, category), updated_at = NOW() WHERE id = $4 ",
           [title, content, category, id]
         );
 
-        // Update tags if provided
         if (tags) {
-          // Remove existing tags for the post
-          await pool.query("DELETE FROM post_tags WHERE post_id = $1", [id]);
-
-          //Add new tags
-          await Promise.all(
-            tags.map(async (tagId) => {
-              await pool.query(
-                "INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                [id, tagId]
-              );
-            })
+          // Step 1 Check for tags associated with the post
+          const currentTagsResult = await pool.query(
+            "SELECT tag_id FROM post_tags WHERE post_id = $1",
+            [id]
           );
+          const currentTagIds = currentTagsResult.rows.map((row) => row.tag_id);
+
+          //Step 2 Check for tags that are to be removed
+          const tagsToRemove = currentTagIds.filter(
+            (tagId: string) => !tags.includes(tagId)
+          );
+
+          // Step 3 Check for tags that are new
+          const tagsToAdd = tags.filter(
+            (tagId: string) => !currentTagIds.includes(tagId)
+          );
+
+          if (tagsToRemove.length > 0) {
+            await pool.query(
+              "DELETE FROM post_tags WHERE post_id = $1 AND tag_id = ANY($2::int[])",
+              [id, tagsToRemove]
+            );
+          }
+
+          // Insert New tags into post_tags (and ensure they exist in tags table)
+          for (const tagId of tagsToAdd) {
+            // Check if the tag exists in the tags table
+            const tagExistsResult = await pool.query(
+              "SELECT id FROM tags WHERE id = $1",
+              [tagId]
+            );
+
+            if (tagExistsResult.rows.length === 0) {
+              // If the tag doesn't exist, insert it into the tags table.
+              await pool.query(
+                "INSERT INTO tags (id) VALUES ($1) ON CONFLICT DO NOTHING",
+                [tagId]
+              );
+            }
+
+            // Add the tag to the post_tags table (avoiding duplicates)
+            await pool.query(
+              "INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+              [id, tagId]
+            );                            
+          }
         }
+
         await pool.query("COMMIT");
 
         // Fetch the updated post and tags
@@ -193,14 +227,13 @@ const resolvers = {
           [id]
         );
         const updatePost = postResult.rows[0];
-
         const tagsResult = await pool.query(
           "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
           [id]
-        );
+        );        
         updatePost.tags = tagsResult.rows;
-
-        return post;
+        return updatePost;
+        
       } catch (error) {
         await pool.query("ROLLBACK");
         throw error;
@@ -211,12 +244,13 @@ const resolvers = {
       const result = await pool.query("SELECT id FROM posts WHERE id = $1", [
         id,
       ]);
+
       const post = result.rows[0];
       if (!post) {
         throw new Error("Post not found");
       }
 
-      //Delete associations in post_tags
+      // Delete associations in post_tags
       await pool.query("DELETE FROM post_tags WHERE post_id = $1", [id]);
 
       // Delete the post

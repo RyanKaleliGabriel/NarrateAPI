@@ -28,6 +28,7 @@ const pool = new Pool({
 const server = new ApolloServer({
   typeDefs,
   resolvers,
+  
 });
 
 const PORT = process.env.PORT || 3000;
