@@ -1,75 +1,95 @@
-import bcrypt from "bcrypt";
 import { MyContext } from "../types/db";
 
 // Assuming db is the PostgreSQL connection pool
 const resolvers = {
   Query: {
     getPost: async (_: any, { id }: { id: string }, { pool }: MyContext) => {
-      const result = await pool.query("SELECT * FROM posts WHERE id = $1", [
-        id,
-      ]);
-      const post = result.rows[0];
+      try {
+        const result = await pool.query("SELECT * FROM posts WHERE id = $1", [
+          id,
+        ]);
+        const post = result.rows[0];
 
-      if (!post) {
-        throw new Error("Post not found");
+        if (!post) {
+          throw new Error("Post not found");
+        }
+
+        // Fetch associated tags
+        const tagResult = await pool.query(
+          // Purpose: This query retrieves the tags associated with a specific post, identified by post_id.
+          // It performs an inner join between tags and post_tags on the condition that tags.id (aliased as t.id) matches post_tags.tag_id.
+          // The post_tags table is the bridge table in a many-to-many relationship between posts and tags.
+          // We use t.id and t.name instead of just id and name to explicitly reference the columns in the tags table.
+          // This is useful because both tags and post_tags may have columns with the same names (like id).
+          // By prefixing with the table alias t, we avoid ambiguity.
+          "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
+          [post.id]
+        );
+
+        post.tags = tagResult.rows;
+        return post;
+      } catch (error: any) {
+        throw new Error(error);
       }
-
-      // Fetch associated tags
-      const tagResult = await pool.query(
-        // Purpose: This query retrieves the tags associated with a specific post, identified by post_id.
-        // It performs an inner join between tags and post_tags on the condition that tags.id (aliased as t.id) matches post_tags.tag_id.
-        // The post_tags table is the bridge table in a many-to-many relationship between posts and tags.
-        // We use t.id and t.name instead of just id and name to explicitly reference the columns in the tags table.
-        // This is useful because both tags and post_tags may have columns with the same names (like id).
-        // By prefixing with the table alias t, we avoid ambiguity.
-        "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
-        [post.id]
-      );
-
-      post.tags = tagResult.rows;
-      return post;
     },
 
     getPosts: async (_: any, __: any, { pool }: MyContext) => {
-      // Modified query to include created_at and updated_at fields
-      const result = await pool.query(
-        `SELECT p.id AS post_id, p.title, p.content, p.category, 
+      try {
+        // Modified query to include created_at and updated_at fields
+        // A LEFT JOIN in SQL allows you to combine data from two tables while ensuring that all rows from the left
+        // table are included even if there no matching rows in the right it will return null
+        // LEFT JOIN post_tags pt ON p.id = pt.post_id:
+        // This join connects posts (aliased as p) to post_tags (aliased as pt) by matching p.id (the primary key of
+        // posts) with pt.post_id (a foreign key in post_tags that references posts).
+        // If a post does not have a corresponding entry in post_tags, then pt.post_id will be NULL for that row in
+        // the result.
+        // LEFT JOIN tags t ON pt.tag_id = t.id:
+        // This join links post_tags (aliased as pt) to tags (aliased as t) by matching pt.tag_id (a foreign key in post_tags) with t.id (the primary key of tags).
+        // If a post_tag does not have a matching entry in tags, t.id and t.name will be NULL in the result.
+        // Columns from posts (like p.id, p.title, p.content, etc.) are retrieved for each post.
+        // Columns from tags (like t.id and t.name) are only populated when a tag is associated with a post;
+        // otherwise, they appear as NULL.
+        const result = await pool.query(
+          `SELECT p.id AS post_id, p.title, p.content, p.category, 
                 p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name 
          FROM posts p 
          LEFT JOIN post_tags pt ON p.id = pt.post_id 
          LEFT JOIN tags t ON pt.tag_id = t.id;`
-      );
+        );
 
-      // Using a Map to store posts by post_id for unique entries
-      const postsMap = new Map();
+        // Using a Map to store posts by post_id for unique entries
+        const postsMap = new Map();
 
-      // Process each row to group tags by post
-      result.rows.forEach((row) => {
-        const postId = row.post_id;
+        // Process each row to group tags by post
+        result.rows.forEach((row) => {
+          const postId = row.post_id;
 
-        // Check if the post already exists in the Map
-        if (!postsMap.has(postId)) {
-          postsMap.set(postId, {
-            id: postId,
-            title: row.title,
-            content: row.content,
-            category: row.category,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            tags: [], // Initialize an empty array for tags
-          });
-        }
+          // Check if the post already exists in the Map
+          if (!postsMap.has(postId)) {
+            postsMap.set(postId, {
+              id: postId,
+              title: row.title,
+              content: row.content,
+              category: row.category,
+              created_at: row.created_at,
+              updated_at: row.updated_at,
+              tags: [], // Initialize an empty array for tags
+            });
+          }
 
-        // If a tag exists, add it to the tags array of the post
-        if (row.tag_id) {
-          postsMap
-            .get(postId)
-            .tags.push({ id: row.tag_id, name: row.tag_name });
-        }
-      });
+          // If a tag exists, add it to the tags array of the post
+          if (row.tag_id) {
+            postsMap
+              .get(postId)
+              .tags.push({ id: row.tag_id, name: row.tag_name });
+          }
+        });
 
-      // Convert the Map values to an array for the final output
-      return Array.from(postsMap.values());
+        // Convert the Map values to an array for the final output
+        return Array.from(postsMap.values());
+      } catch (error: any) {
+        throw new Error(error);
+      }
     },
   },
 
@@ -215,7 +235,7 @@ const resolvers = {
             await pool.query(
               "INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
               [id, tagId]
-            );                            
+            );
           }
         }
 
@@ -230,10 +250,9 @@ const resolvers = {
         const tagsResult = await pool.query(
           "SELECT t.id, t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = $1",
           [id]
-        );        
+        );
         updatePost.tags = tagsResult.rows;
         return updatePost;
-        
       } catch (error) {
         await pool.query("ROLLBACK");
         throw error;
@@ -241,21 +260,25 @@ const resolvers = {
     },
 
     deletePost: async (_: any, { id }: { id: string }, { pool }: MyContext) => {
-      const result = await pool.query("SELECT id FROM posts WHERE id = $1", [
-        id,
-      ]);
+      try {
+        const result = await pool.query("SELECT id FROM posts WHERE id = $1", [
+          id,
+        ]);
 
-      const post = result.rows[0];
-      if (!post) {
-        throw new Error("Post not found");
+        const post = result.rows[0];
+        if (!post) {
+          throw new Error("Post not found");
+        }
+
+        // Delete associations in post_tags
+        await pool.query("DELETE FROM post_tags WHERE post_id = $1", [id]);
+
+        // Delete the post
+        await pool.query("DELETE FROM posts WHERE id = $1", [id]);
+        return true;
+      } catch (error: any) {
+        throw new Error(error);
       }
-
-      // Delete associations in post_tags
-      await pool.query("DELETE FROM post_tags WHERE post_id = $1", [id]);
-
-      // Delete the post
-      await pool.query("DELETE FROM posts WHERE id = $1", [id]);
-      return true;
     },
   },
 };
