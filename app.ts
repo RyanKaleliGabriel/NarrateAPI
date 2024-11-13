@@ -1,63 +1,31 @@
-import { ApolloServer } from "@apollo/server";
-import { expressMiddleware } from "@apollo/server/express4";
+import compression from "compression";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
-import gql from "graphql-tag";
-import path from "path";
-import { Pool } from "pg"; // Import pg
-import { readFileSync } from "fs";
-import resolvers from "./resolvers/post";
-import { MyContext } from "./types/db";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
-dotenv.config();
-
-
-// Read Schema from file ensure the path is correct
-const typeDefs = gql(
-  readFileSync(path.join(__dirname, "schema.graphql"), {
-    encoding: "utf-8",
-  })
-);
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-// Create Apollo server
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  
-});
-
-const PORT = process.env.PORT || 3000;
 const app = express();
+
+// Reducing Finger printing.
+// By default express sends the X-powered-By response header that you can disable using the app.disable() method.
+app.disable("x-powered-by");
 
 // Middleware
 app.use(cors());
+
+// Prevent XSS Attack by setting special headers
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// Limit requests fro the same API
+// const limiter = rateLimit({
+//   windowMs: 10 * 60 * 1000,
+//   limit: 100,
+//   message: "Too many requests from this IP please try again in an hour",
+// });
+// app.use(limiter);
+
+// GZIP compression
+app.use(compression());
 app.use(express.json());
 
-const startServer = async () => {
-
-  await server.start(); // Start the apollo server
-  // MIddleware for apollo server graphql endpoint
-  // he context property may not be defined directly when instantiating the ApolloServer object in this way.
-  // To resolve this, we can pass the context when setting up the middleware (expressMiddleware) instead.
-  app.use(
-    "/graphql",
-    cors(),
-    express.json(),
-    expressMiddleware(server, {
-      context: async (): Promise<MyContext> => ({ pool }), // Set context here
-    })
-  );
-
-  app.listen(PORT, () => {
-    console.log(`GraphQL endpoint: http://localhost:${PORT}/graphql`);
-  });
-};
-
-startServer().catch((error) => {
-  console.error("Unable to connect to database:", error);
-});
+export default app;
