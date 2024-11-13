@@ -37,13 +37,20 @@
 ## Error Handling
 
 **Built In Apollo Error Codes** - Configured a service to handle the new v4 apollo server errors and modified their messages.
+
 **Custom Error** - Used the custom error technique in scenarios where the built in error codes could not apply
 
 ## Best Practices
 
 **Nullability**
+
 **Pagination**
+
 **Server-Side Batching/Caching**
+
 **ApolloServerPluginDrainHttpServer** - Used this plugin for graceful shutdown of the express server.
+
 **Gzip Compression** - Decreased the size of the response body.
+
 **X-Powered-By Header** - Disbaled this header to reduce fingerprinting. Reduces the ability of attacker to determine the software the server uses.
+
