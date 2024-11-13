@@ -6,6 +6,7 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node dist/server.js",
+    "start:prod":"cross-env NODE_ENV=production && node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:migrate": "sequelize-cli db:migrate --config config/config.js"
   },

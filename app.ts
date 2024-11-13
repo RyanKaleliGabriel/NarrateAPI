@@ -17,12 +17,12 @@ app.use(cors());
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // Limit requests fro the same API
-const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 100,
-  message: "Too many requests from this IP please try again in an hour",
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 10 * 60 * 1000,
+//   limit: 100,
+//   message: "Too many requests from this IP please try again in an hour",
+// });
+// app.use(limiter);
 
 // GZIP compression
 app.use(compression());

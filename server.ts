@@ -1,18 +1,19 @@
+import { readFileSync } from "fs";
 import gql from "graphql-tag";
 import path from "path";
 import { Pool } from "pg"; // Import pg
-import { readFileSync } from "fs";
 // (Resolvers) A map of functions that populate data for individual schema fields.
-import resolvers from "./resolvers/post";
-import { MyContext } from "./types/db";
-import dotenv from "dotenv";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import app from "./app";
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import cors from "cors";
+import dotenv from "dotenv";
 import express from "express";
 import http from "http";
-import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import app from "./app";
+import resolvers from "./resolvers/post";
+import { MyContext } from "./types/db";
+import customFormatErrors from "./utils/customFormatErrors";
 
 dotenv.config();
 
@@ -35,9 +36,12 @@ const httpServer = http.createServer(app);
 const server = new ApolloServer({
   typeDefs,
   resolvers,
+  formatError: customFormatErrors,
   // To ensure your server gracefully shuts down, we recommend using the ApolloServerPluginDrainHttpServer plugin.
   // Plugins extend Apollo Server's functionality by performing custom operations in response to certain events.
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  //yields a 400 status code when providing invalid variables(Bad request)
+  status400ForVariableCoercionErrors: true,
 });
 
 const PORT = process.env.PORT || 3000;
