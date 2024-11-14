@@ -1,6 +1,7 @@
+scalar DateTime
 type Query {
   getPost(id: ID!): Blog
-  getPosts: [Blog]
+  getPosts(after: String, limit: Int): [Blog]
 }
 
 type Mutation {
@@ -20,6 +21,8 @@ type Blog {
   content: String
   category: String
   tags: [Tag]
+  created_at: DateTime
+  updated_at: DateTime
 }
 
 type Tag {

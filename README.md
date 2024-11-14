@@ -32,7 +32,7 @@
 - NodeJs
 - Express
 - PostgreSQL
-- Docker
+- Docker Compose
 
 ## Error Handling
 
