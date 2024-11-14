@@ -27,7 +27,15 @@ const resolvers = {
       return post;
     },
 
-    getPosts: async (_: any, __: any, { pool }: MyContext) => {
+    getPosts: async (
+      _: any,
+      // Use a cursor argument (e.g., after or before) to represent the starting point for the pagination.
+      // The limit parameter still specifies how many records to retrieve.
+      // Fetch posts starting from a specific cursor. If after (cursor) is provided, only fetch posts created after that date.
+      // Use created_at as the cursor for each post to retrieve newer or older entries.
+      { after, limit = 10 }: { after?: string; limit?: number },
+      { pool }: MyContext
+    ) => {
       // Modified query to include created_at and updated_at fields
       // A LEFT JOIN in SQL allows you to combine data from two tables while ensuring that all rows from the left
       // table are included even if there no matching rows in the right it will return null
@@ -42,13 +50,24 @@ const resolvers = {
       // Columns from posts (like p.id, p.title, p.content, etc.) are retrieved for each post.
       // Columns from tags (like t.id and t.name) are only populated when a tag is associated with a post;
       // otherwise, they appear as NULL.
-      const result = await pool.query(
-        `SELECT p.id AS post_id, p.title, p.content, p.category, 
-                p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name 
-         FROM posts p 
-         LEFT JOIN post_tags pt ON p.id = pt.post_id 
-         LEFT JOIN tags t ON pt.tag_id = t.id;`
-      );
+
+      const query = `SELECT p.id AS post_id, p.title, p.content, p.category, 
+      p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name 
+      FROM posts p 
+      LEFT JOIN post_tags pt ON p.id = pt.post_id 
+      LEFT JOIN tags t ON pt.tag_id = t.id 
+      WHERE (p.created_at < $1) 
+      LIMIT $2;`;
+
+      // const result = await pool.query(
+      //   `SELECT p.id AS post_id, p.title, p.content, p.category,
+      //           p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name
+      //    FROM posts p
+      //    LEFT JOIN post_tags pt ON p.id = pt.post_id
+      //    LEFT JOIN tags t ON pt.tag_id = t.id ORDER BY p.created_at ASC OFFSET $1 LIMIT $2;`,
+      //   [offset, limit]
+      // );
+      const result = await pool.query(query, [after, limit]);
 
       // Using a Map to store posts by post_id for unique entries
       const postsMap = new Map();
