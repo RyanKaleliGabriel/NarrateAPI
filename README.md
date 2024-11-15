@@ -42,11 +42,11 @@
 
 ## Best Practices
 
-**Nullability**
+**Nullability** - Set by default
 
-**Pagination**
+**Pagination** - Used cursor based pagination because of the dynaimc behaviour in blog posts
 
-**Server-Side Batching/Caching**
+**Server-Side Batching/Caching** - Used dynamic resolver-level caching.
 
 **ApolloServerPluginDrainHttpServer** - Used this plugin for graceful shutdown of the express server.
 
