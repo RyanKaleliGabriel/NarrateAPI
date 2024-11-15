@@ -41,9 +41,9 @@
 
 ## Best Practices
 
-**Nullability**
-**Pagination**
-**Server-Side Batching/Caching**
+**Nullability** - Set by default.
+**Pagination** - Cursor based pagination beacuse of the dynamic nature of the records
+**Server-Side Caching** -Dynamic resolver-level caching
 **ApolloServerPluginDrainHttpServer** - Used this plugin for graceful shutdown of the express server.
 **Gzip Compression** - Decreased the size of the response body.
 **X-Powered-By Header** - Disbaled this header to reduce fingerprinting. Reduces the ability of attacker to determine the software the server uses.
