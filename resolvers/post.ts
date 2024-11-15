@@ -1,11 +1,18 @@
 import { GraphQLError } from "graphql";
 import { MyContext } from "../types/db";
 import { assetFound } from "../utils/customErrors";
+// import "apollo-cache-control";
 
 // Assuming db is the PostgreSQL connection pool
 const resolvers = {
   Query: {
-    getPost: async (_: any, { id }: { id: string }, { pool }: MyContext) => {
+    getPost: async (
+      _: any,
+      { id }: { id: string },
+      { pool }: MyContext,
+      info: any
+    ) => {
+      info.cacheControl.setCacheHint({ maxAge: 60 });
       const result = await pool.query("SELECT * FROM posts WHERE id = $1", [
         id,
       ]);
@@ -34,8 +41,13 @@ const resolvers = {
       // Fetch posts starting from a specific cursor. If after (cursor) is provided, only fetch posts created after that date.
       // Use created_at as the cursor for each post to retrieve newer or older entries.
       { after, limit = 10 }: { after?: string; limit?: number },
-      { pool }: MyContext
+      // Resolver-Level Cache is Suitable: Since the getPosts and getPost resolvers fetch data in a single operation per query,
+      // applying a cache hint at the resolver level is more efficient. It ensures the entire query result is cached rather than
+      // fragmenting the logic across individual fields.
+      { pool }: MyContext,
+      info: any
     ) => {
+      info.cacheControl.setCacheHint({ maxAge: 60 });
       // Modified query to include created_at and updated_at fields
       // A LEFT JOIN in SQL allows you to combine data from two tables while ensuring that all rows from the left
       // table are included even if there no matching rows in the right it will return null
@@ -51,22 +63,26 @@ const resolvers = {
       // Columns from tags (like t.id and t.name) are only populated when a tag is associated with a post;
       // otherwise, they appear as NULL.
 
-      const query = `SELECT p.id AS post_id, p.title, p.content, p.category, 
-      p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name 
-      FROM posts p 
-      LEFT JOIN post_tags pt ON p.id = pt.post_id 
-      LEFT JOIN tags t ON pt.tag_id = t.id 
-      WHERE (p.created_at < $1) 
-      LIMIT $2;`;
+      // 1. CTE (unique_posts): Selects unique posts and applies the ROW_NUMBER function to add a unique row number to each post, ordered by created_at.
+      // 2. Filter with row_num <= $1: Limits the unique posts retrieved to limit posts.
+      // 3. LEFT JOIN: Joins tags only after the unique post selection to avoid duplicate post rows affecting the count.
 
-      // const result = await pool.query(
-      //   `SELECT p.id AS post_id, p.title, p.content, p.category,
-      //           p.created_at, p.updated_at, t.id AS tag_id, t.name AS tag_name
-      //    FROM posts p
-      //    LEFT JOIN post_tags pt ON p.id = pt.post_id
-      //    LEFT JOIN tags t ON pt.tag_id = t.id ORDER BY p.created_at ASC OFFSET $1 LIMIT $2;`,
-      //   [offset, limit]
-      // );
+      const query = `
+      WITH unique_posts AS (
+      SELECT p.id AS post_id, p.title, p.content, p.category,
+             p.created_at, p.updated_at,
+             ROW_NUMBER() OVER (ORDER BY p.created_at) AS row_num
+      FROM posts p
+      WHERE $1::timestamp IS NULL OR p.created_at > $1::timestamp
+      )
+      SELECT up.post_id, up.title, up.content, up.category,
+           up.created_at, up.updated_at,
+           t.id AS tag_id, t.name AS tag_name
+      FROM unique_posts up
+      LEFT JOIN post_tags pt ON up.post_id = pt.post_id
+      LEFT JOIN tags t ON pt.tag_id = t.id
+      WHERE up.row_num <= $2;`;
+
       const result = await pool.query(query, [after, limit]);
 
       // Using a Map to store posts by post_id for unique entries
